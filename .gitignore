@@ -1,0 +1,8 @@
+__pycache__/
+.venv
+.vscode/
+*.db
+blacklist.txt
+config.yaml
+.DS_Store
+backup
