@@ -1,9 +1,11 @@
 import asyncio
 import hashlib
 import itertools
+import logging
 import os
 import random
 import re
+import traceback
 from collections.abc import Callable, Coroutine
 from typing import Any, AsyncIterable, AsyncIterator, Callable, Generic, TypeVar
 
@@ -26,7 +28,16 @@ class SingleFlight(Generic[T]):
         async with self._lock:
             task = self._inflight.get(key)
             if task is None:
-                task = asyncio.create_task(worker())
+
+                async def runner() -> T:
+                    try:
+                        return await worker()
+                    except Exception:
+                        print(f"worker failed for key={key!r}")
+                        traceback.print_exc()
+                        raise
+
+                task = asyncio.create_task(runner())
                 self._inflight[key] = task
 
         try:
@@ -35,6 +46,15 @@ class SingleFlight(Generic[T]):
             async with self._lock:
                 if self._inflight.get(key) is task:
                     del self._inflight[key]
+
+
+class CaptureHandler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.messages: list[str] = []
+
+    def emit(self, record: logging.LogRecord):
+        self.messages.append(record.getMessage())
 
 
 async def async_count(start: int = 0, step: int = 1):

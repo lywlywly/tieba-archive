@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from typing import Iterable, Optional, Sequence
 
@@ -6,7 +7,12 @@ import aioitertools.itertools as ait
 import aiotieba as tb
 import yaml
 from aiotieba.api._classdef import FragAt, FragEmoji, FragLink, FragText, UserInfo
-from aiotieba.api.get_comments._classdef import Comment, Comments, Contents_c
+from aiotieba.api.get_comments._classdef import (
+    Comment,
+    Comments,
+    Contents_c,
+    UserInfo_c,
+)
 from aiotieba.api.get_posts._classdef import (
     Contents_p,
     FragImage_p,
@@ -14,7 +20,10 @@ from aiotieba.api.get_posts._classdef import (
     FragVoice,
     Post,
     Thread_p,
+    UserInfo_p,
+    UserInfo_pt,
 )
+from aiotieba.logging import get_logger
 from lxml import etree  # type: ignore
 from lxml.builder import E
 from sqlmodel import Session, SQLModel, create_engine, exists, select
@@ -30,6 +39,7 @@ from tables import (
     UserTable,
 )
 from utils import (
+    CaptureHandler,
     SingleFlight,
     download_bytes,
     download_file_async,
@@ -114,10 +124,10 @@ async def _ensure_avatar_image(
 
 async def upsert_user_profile(
     session: Session,
-    user_info: UserInfo,
+    user_info: UserInfo | UserInfo_pt | UserInfo_p | UserInfo_c,
     strict_check_portrait: bool = False,
 ) -> UserProfile:
-    assert user_info.portrait, user_info
+    assert user_info.portrait, repr(user_info)
     user = session.get(UserTable, user_info.user_id)
     if user is None:
         user = UserTable(
@@ -188,36 +198,65 @@ async def upsert_user_profile(
     return new_profile
 
 
-async def safe_get_user_info(client: tb.Client, id: int, retry_limit: int = 10):
+async def safe_get_user_info(
+    client: tb.Client, id: int, retry_limit: int = 10, invalid_user_id_limit: int = 3
+):
+    logger = get_logger()
+    invalid_user_id_cnt = 0
+
     for retry in range(1, retry_limit + 1):
         if retry > 1:
             print(f"get_user_info failed, retry {retry}/{retry_limit}")
-        user_info = await client.get_user_info(id)
+
+        handler = CaptureHandler()
+        logger.addHandler(handler)
+        try:
+            user_info = await client.get_user_info(id)
+        finally:
+            logger.removeHandler(handler)
+
         if user_info.user_id > 0:
             return user_info
-        await asyncio.sleep(3 * retry)
+        messages = handler.messages
+        if f"(300003, '加载数据失败'). args=({id},) kwargs={{}}" in messages:
+            invalid_user_id_cnt += 1
+            if invalid_user_id_cnt >= invalid_user_id_limit:
+                print("deleted user")
+                return user_info  # return empty user info
 
-    raise Exception(f"get_user_info failed after {retry_limit} retries")
+        if retry < retry_limit:
+            await asyncio.sleep(3 * retry)
+
+    raise RuntimeError(f"get_user_info({id}) failed after {retry_limit} retries")
 
 
 singleflight = SingleFlight[None]()
 
 
 async def safe_get_and_upsert_user_info(
-    client: tb.Client, session: Session, user_id: int
+    client: tb.Client,
+    session: Session,
+    user_id: int,
+    user_info: UserInfo | UserInfo_pt | UserInfo_p | UserInfo_c | None = None,
 ):
-    # FIXME: fail when user account deleted
-    user = await safe_get_user_info(client, user_id)
-    await upsert_user_profile(session, user)
+    if not user_info:
+        user_info = await safe_get_user_info(client, user_id)
+    if user_info.user_id == 0:
+        return
+    await upsert_user_profile(session, user_info)
 
 
 async def safe_get_and_upsert_user_info_once(
-    client: tb.Client, session: Session, user_id: int
+    client: tb.Client,
+    session: Session,
+    user_id: int,
+    user_info: UserInfo | UserInfo_pt | UserInfo_p | UserInfo_c | None = None,
 ):
     # guard against multiple concurrent function calls being made, resulting in duplicate entries and large avatar download
     # non-overlapping duplicate calls are fine since checking and network request besides large avatar download is cheap
     await singleflight.do(
-        user_id, lambda: safe_get_and_upsert_user_info(client, session, user_id)
+        user_id,
+        lambda: safe_get_and_upsert_user_info(client, session, user_id, user_info),
     )
 
 
@@ -299,7 +338,7 @@ async def save_post(session: Session, client: tb.Client, post: Post):
         print("post exists skipping...")
         return
 
-    await safe_get_and_upsert_user_info_once(client, session, post.author_id)
+    await safe_get_and_upsert_user_info_once(client, session, post.author_id, post.user)
 
     print(f"saving post {post.pid}")
     p = PostTable(
@@ -322,7 +361,9 @@ async def save_posts(session: Session, client: tb.Client, posts: list[Post]):
 
 async def save_comment(session: Session, client: tb.Client, comment: Comment):
     print(f"saving comment {comment.pid}")
-    await safe_get_and_upsert_user_info_once(client, session, comment.author_id)
+    await safe_get_and_upsert_user_info_once(
+        client, session, comment.author_id, comment.user
+    )
 
     if comment.reply_to_id > 0:
         await safe_get_and_upsert_user_info_once(client, session, comment.reply_to_id)
@@ -387,7 +428,9 @@ async def save_thread(
 
     else:
         print(f"Thread {thread.tid} not found; inserting new record.")
-        await safe_get_and_upsert_user_info_once(client, session, thread.author_id)
+        await safe_get_and_upsert_user_info_once(
+            client, session, thread.author_id, thread.user
+        )
         post_et = await contents_to_etree(session, client, first_post.contents)  # type: ignore
         if thread.vote_info.title:
             for child in vote_etree:
