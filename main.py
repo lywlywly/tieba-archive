@@ -55,11 +55,13 @@ with open("config.yaml", "r") as f:
     assert OUTPUT_DIR and isinstance(OUTPUT_DIR, str)
     BDUSS: str = config["BDUSS"]
     assert BDUSS and isinstance(BDUSS, str)
-    forum_name = config["forum_name"]
-    assert forum_name and isinstance(forum_name, str)
-    pages = config["pages"]
+    forum_names: list[str] = config["forum_names"]
+    assert forum_names and isinstance(forum_names, list)
+    for _forum_name in forum_names:
+        assert isinstance(_forum_name, str)
+    pages: int = config["pages"]
     assert pages and isinstance(pages, int)
-    sleep = config["sleep"]
+    sleep: int = config["sleep"]
     assert sleep and isinstance(sleep, int)
 
 SMALL_AVATAR_URL = "http://tb.himg.baidu.com/sys/portraitn/item/{portrait}"
@@ -576,20 +578,21 @@ async def main():
     while True:
         with Session(engine) as session:
             async with tb.Client(BDUSS) as client:
-                # FIXME: `client.get_threads` reply order broken, have to use create order for now
-                # consider getting reply order by scraping thread_ids from web Tieba (old UI with pagination)
-                thread_ids = [
-                    x.tid
-                    for i in range(1, pages)
-                    for x in await client.get_threads(
-                        forum_name, sort=tb.ThreadSortType.CREATE, pn=i, rn=20
+                for forum_name in forum_names:
+                    # FIXME: `client.get_threads` reply order broken, have to use create order for now
+                    # consider getting reply order by scraping thread_ids from web Tieba (old UI with pagination)
+                    thread_ids = [
+                        x.tid
+                        for i in range(1, pages)
+                        for x in await client.get_threads(
+                            forum_name, sort=tb.ThreadSortType.REPLY, pn=i, rn=20
+                        )
+                    ]
+                    filtered_thread_ids = [t for t in thread_ids if t not in blacklist]
+                    await run_rolling(
+                        filtered_thread_ids, session, client, limit=CONCURRENCY_LIMIT
                     )
-                ]
-                filtered_thread_ids = [t for t in thread_ids if t not in blacklist]
-                await run_rolling(
-                    filtered_thread_ids, session, client, limit=CONCURRENCY_LIMIT
-                )
-        time.sleep(sleep)
+                time.sleep(sleep)
 
 
 asyncio.run(main()) if __name__ == "__main__" else None
