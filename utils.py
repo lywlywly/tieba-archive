@@ -6,26 +6,37 @@ import os
 import random
 import re
 import traceback
-from collections.abc import Callable, Coroutine
+from collections import OrderedDict
+from collections.abc import Callable, Coroutine, Hashable
 from typing import Any, AsyncIterable, AsyncIterator, Callable, Generic, TypeVar
 
 import aiofiles
 import aiohttp
 
+K = TypeVar("K", bound=Hashable)
 T = TypeVar("T")
 
 
-class SingleFlight(Generic[T]):
-    def __init__(self) -> None:
+class SingleFlightCompletedBuffer(Generic[K, T]):
+    def __init__(self, max_completed: int = 1000) -> None:
         self._lock = asyncio.Lock()
-        self._inflight: dict[int, asyncio.Task[T]] = {}
+        self._inflight: dict[K, asyncio.Task[T]] = {}
+        self._completed: OrderedDict[K, T] = OrderedDict()
+        self._max_completed = max_completed
 
     async def do(
         self,
-        key: int,
+        key: K,
         worker: Callable[[], Coroutine[Any, Any, T]],
     ) -> T:
         async with self._lock:
+            print(f"size: {len(self._completed)}")
+            # fast path: completed buffer
+            cached = self._completed.get(key)
+            if key in self._completed:
+                return self._completed[key]
+
+            # check inflight
             task = self._inflight.get(key)
             if task is None:
 
@@ -37,15 +48,28 @@ class SingleFlight(Generic[T]):
                         traceback.print_exc()
                         raise
 
-                task = asyncio.create_task(runner())
+                task = asyncio.create_task(runner(), name=f"singleflight:{key}")
                 self._inflight[key] = task
 
         try:
-            return await task
+            result = await task
         finally:
             async with self._lock:
                 if self._inflight.get(key) is task:
                     del self._inflight[key]
+
+        # store into completed buffer (FIFO)
+        async with self._lock:
+            cached = self._completed.get(key)
+            if cached is not None:
+                return cached
+
+            self._completed[key] = result
+
+            if len(self._completed) > self._max_completed:
+                self._completed.popitem(last=False)
+
+            return result
 
 
 class CaptureHandler(logging.Handler):

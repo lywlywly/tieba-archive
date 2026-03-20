@@ -40,7 +40,7 @@ from tables import (
 )
 from utils import (
     CaptureHandler,
-    SingleFlight,
+    SingleFlightCompletedBuffer,
     download_bytes,
     download_file_async,
     inclusive_takewhile,
@@ -230,7 +230,7 @@ async def safe_get_user_info(
     raise RuntimeError(f"get_user_info({id}) failed after {retry_limit} retries")
 
 
-singleflight = SingleFlight[None]()
+singleflight = SingleFlightCompletedBuffer[int, None]()
 
 
 async def safe_get_and_upsert_user_info(
