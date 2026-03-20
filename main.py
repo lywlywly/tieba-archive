@@ -46,6 +46,7 @@ from utils import (
     inclusive_takewhile,
     sha256_bytes,
 )
+from web_get_tids_reply_order import scrape_tieba_thread_ids
 
 with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
@@ -63,6 +64,8 @@ with open("config.yaml", "r") as f:
     assert pages and isinstance(pages, int)
     sleep: int = config["sleep"]
     assert sleep and isinstance(sleep, int)
+    web_tieba_cookies: str = config["web_tieba_cookies"]
+    assert web_tieba_cookies and isinstance(web_tieba_cookies, str)
 
 SMALL_AVATAR_URL = "http://tb.himg.baidu.com/sys/portraitn/item/{portrait}"
 LARGE_AVATAR_URL = "http://tb.himg.baidu.com/sys/portraith/item/{portrait}"
@@ -579,15 +582,19 @@ async def main():
         with Session(engine) as session:
             async with tb.Client(BDUSS) as client:
                 for forum_name in forum_names:
-                    # FIXME: `client.get_threads` reply order broken, have to use create order for now
-                    # consider getting reply order by scraping thread_ids from web Tieba (old UI with pagination)
-                    thread_ids = [
-                        x.tid
-                        for i in range(1, pages)
-                        for x in await client.get_threads(
-                            forum_name, sort=tb.ThreadSortType.REPLY, pn=i, rn=20
+                    # FIXME: `client.get_threads` reply order broken, have to get reply order by scraping thread_ids from web Tieba (old UI with pagination) for now
+                    if True:
+                        thread_ids = scrape_tieba_thread_ids(
+                            web_tieba_cookies, forum_name, max_pages=-(-2 * pages // 5)
                         )
-                    ]
+                    else:
+                        thread_ids = [
+                            x.tid
+                            for i in range(1, pages)
+                            for x in await client.get_threads(
+                                forum_name, sort=tb.ThreadSortType.REPLY, pn=i, rn=20
+                            )
+                        ]
                     filtered_thread_ids = [t for t in thread_ids if t not in blacklist]
                     await run_rolling(
                         filtered_thread_ids, session, client, limit=CONCURRENCY_LIMIT

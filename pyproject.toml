@@ -10,5 +10,6 @@ dependencies = [
     "aiotieba>=4.6.2",
     "lxml>=6.0.2",
     "pyyaml>=6.0.3",
+    "requests>=2.32.5",
     "sqlmodel>=0.0.37",
 ]
