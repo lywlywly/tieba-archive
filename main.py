@@ -487,22 +487,47 @@ async def save_all_comments(
 
 
 async def safe_get_posts(
-    client: tb.Client, thread_id: int, pn: int, retry_limit: int = 10
+    client: tb.Client,
+    thread_id: int,
+    pn: int,
+    retry_limit: int = 10,
+    invalid_thread_id_limit: int = 3,
 ):
+    logger = get_logger()
+    invalid_thread_id_cnt = 0
+
     for retry in range(1, retry_limit + 1):
         if retry > 1:
-            print(f"get_posts failed, retry {retry}/{retry_limit}")
-        posts = await client.get_posts(thread_id, pn)
+            print(f"get_posts({thread_id}) failed, retry {retry}/{retry_limit}")
+
+        handler = CaptureHandler()
+        logger.addHandler(handler)
+        try:
+            posts = await client.get_posts(thread_id, pn)
+        finally:
+            logger.removeHandler(handler)
+
         if posts.objs:
             return posts
-        await asyncio.sleep(3 * retry)
-    raise Exception(f"get_posts failed after {retry_limit} retries")
+        messages = handler.messages
+        if f"(4, '贴子可能已被删除'). args=({thread_id}, {pn}) kwargs={{}}" in messages:
+            invalid_thread_id_cnt += 1
+            if invalid_thread_id_cnt >= invalid_thread_id_limit:
+                print("deleted thread")
+                return posts  # return empty user info
+
+        if retry < retry_limit:
+            await asyncio.sleep(3 * retry)
+
+    raise RuntimeError(f"get_posts({thread_id}) failed after {retry_limit} retries")
 
 
 async def gen(client: tb.Client, thread_id: int, thread_info: Thread_p):
     async for pn in ait.count():
         print(f"thread: {thread_id} post pn={pn + 1}")
         posts = await safe_get_posts(client, thread_id, pn=pn + 1)
+        if not posts.objs:
+            return  # skip when failed to get posts (posts deleted)
         if pn == 0:
             thread_info.__dict__.update(posts.thread.__dict__)
         yield posts
@@ -518,6 +543,8 @@ async def get_all_posts(session: Session, client: tb.Client, thread_id: int):
         )
         for post in posts
     ]
+    if not posts:
+        return  # skip when failed to get posts (posts deleted)
     await save_thread(session, client, thread_info, posts[0])
     await save_posts(session, client, posts[1:])
 
