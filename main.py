@@ -211,7 +211,7 @@ async def safe_get_user_info(
 
     for retry in range(1, retry_limit + 1):
         if retry > 1:
-            print(f"get_user_info failed, retry {retry}/{retry_limit}")
+            print(f"get_user_info({id}) failed, retry {retry}/{retry_limit}")
 
         handler = CaptureHandler()
         logger.addHandler(handler)
@@ -286,7 +286,8 @@ async def get_element(session: Session, client: tb.Client, c: object) -> etree.E
                 print(f"image {c.hash} found record in database, skipping")
             return etree.Element("img", hash=c.hash, src=c.origin_src)
         case FragAt():
-            await safe_get_and_upsert_user_info_once(client, session, c.user_id)
+            if c.user_id > 0:
+                await safe_get_and_upsert_user_info_once(client, session, c.user_id)
             elem = etree.Element("at", hash=str(c.user_id))
             elem.text = c.text
             return elem
