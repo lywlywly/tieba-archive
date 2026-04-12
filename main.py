@@ -501,6 +501,7 @@ async def save_all_comments(
         print(
             f"fetching comments: thread_id: {thread_id}, post_id id: {post_id}, pn:{pn}"
         )
+        # FIXME: when failed
         comments = await client.get_comments(thread_id, post_id, pn=pn)
         await parse_comments(session, client, comments)
         if not comments.has_more:
