@@ -26,6 +26,7 @@ from aiotieba.api.get_posts._classdef import (
 from aiotieba.logging import get_logger
 from lxml import etree  # type: ignore
 from lxml.builder import E
+from sqlalchemy.engine import Engine
 from sqlmodel import Session, SQLModel, create_engine, exists, select
 
 from lib import to_xml
@@ -266,7 +267,7 @@ async def safe_get_and_upsert_user_info_once(
     )
 
 
-async def save_post_img( # type: ignore
+async def save_post_img(  # type: ignore
     client: tb.Client,
     session: Session,
     hash: str,
@@ -494,19 +495,20 @@ async def save_thread(
 
 
 async def save_all_comments(
-    session: Session, client: tb.Client, thread_id: int, post_id: int
+    engine: Engine, client: tb.Client, thread_id: int, post_id: int
 ):
-    pn = 1
-    while True:
-        print(
-            f"fetching comments: thread_id: {thread_id}, post_id id: {post_id}, pn:{pn}"
-        )
-        # FIXME: when failed
-        comments = await client.get_comments(thread_id, post_id, pn=pn)
-        await parse_comments(session, client, comments)
-        if not comments.has_more:
-            break
-        pn += 1
+    with Session(engine) as session:
+        pn = 1
+        while True:
+            print(
+                f"fetching comments: thread_id: {thread_id}, post_id id: {post_id}, pn:{pn}"
+            )
+            # FIXME: when failed
+            comments = await client.get_comments(thread_id, post_id, pn=pn)
+            await parse_comments(session, client, comments)
+            if not comments.has_more:
+                break
+            pn += 1
 
 
 async def safe_get_posts(
@@ -556,7 +558,7 @@ async def gen(client: tb.Client, thread_id: int, thread_info: Thread_p):
         yield posts
 
 
-async def get_all_posts(session: Session, client: tb.Client, thread_id: int):
+async def get_all_posts(engine: Engine, client: tb.Client, thread_id: int):
     thread_info: Thread_p = Thread_p()
     posts = [
         post
@@ -568,24 +570,25 @@ async def get_all_posts(session: Session, client: tb.Client, thread_id: int):
     ]
     if not posts:
         return  # skip when failed to get posts (posts deleted)
-    await save_thread(session, client, thread_info, posts[0])
-    await save_posts(session, client, posts[1:])
+    with Session(engine) as session:
+        await save_thread(session, client, thread_info, posts[0])
+        await save_posts(session, client, posts[1:])
 
     post_ids = [post.pid for post in posts if post.reply_num > 0]
     tasks = [
-        save_all_comments(session, client, thread_id, post_id) for post_id in post_ids
+        save_all_comments(engine, client, thread_id, post_id) for post_id in post_ids
     ]
     await asyncio.gather(*tasks)
 
 
-async def fetch_batch(session: Session, client: tb.Client, batch: Sequence[int]):
-    tasks = [get_all_posts(session, client, tid) for tid in batch]  # Create tasks
+async def fetch_batch(engine: Engine, client: tb.Client, batch: Sequence[int]):
+    tasks = [get_all_posts(engine, client, tid) for tid in batch]  # Create tasks
     await asyncio.gather(*tasks)  # Run the batch concurrently
     print("return")
 
 
 async def run_rolling(
-    tids: Iterable[int], session: Session, client: tb.Client, limit: int = 5
+    tids: Iterable[int], engine: Engine, client: tb.Client, limit: int = 5
 ):
     it = iter(tids)
 
@@ -596,7 +599,7 @@ async def run_rolling(
             tid = next(it)
         except StopIteration:
             break
-        t = asyncio.create_task(get_all_posts(session, client, tid))
+        t = asyncio.create_task(get_all_posts(engine, client, tid))
         in_flight[t] = tid
 
     # keep refilling as tasks complete
@@ -618,7 +621,7 @@ async def run_rolling(
                 next_tid = next(it)
             except StopIteration:
                 continue
-            new_task = asyncio.create_task(get_all_posts(session, client, next_tid))
+            new_task = asyncio.create_task(get_all_posts(engine, client, next_tid))
             in_flight[new_task] = next_tid
 
 
@@ -630,21 +633,20 @@ async def main():
     SQLModel.metadata.create_all(engine)
 
     while True:
-        with Session(engine) as session:
-            async with tb.Client(BDUSS) as client:
-                for forum_name in forum_names:
-                    thread_ids = [
-                        x.tid
-                        for i in range(1, pages)
-                        for x in await client.get_threads(
-                            forum_name, sort=tb.ThreadSortType.REPLY, pn=i, rn=20
-                        )
-                    ]
-                    filtered_thread_ids = [t for t in thread_ids if t not in blacklist]
-                    await run_rolling(
-                        filtered_thread_ids, session, client, limit=CONCURRENCY_LIMIT
+        async with tb.Client(BDUSS) as client:
+            for forum_name in forum_names:
+                thread_ids = [
+                    x.tid
+                    for i in range(1, pages)
+                    for x in await client.get_threads(
+                        forum_name, sort=tb.ThreadSortType.REPLY, pn=i, rn=20
                     )
-                time.sleep(sleep)
+                ]
+                filtered_thread_ids = [t for t in thread_ids if t not in blacklist]
+                await run_rolling(
+                    filtered_thread_ids, engine, client, limit=CONCURRENCY_LIMIT
+                )
+            time.sleep(sleep)
 
 
 asyncio.run(main()) if __name__ == "__main__" else None
