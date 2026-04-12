@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlmodel import BigInteger, Column, Field, ForeignKey, SQLModel
+from sqlmodel import BigInteger, Column, Field, ForeignKey, Index, SQLModel
 
 
 class UserTable(SQLModel, table=True):
@@ -57,13 +57,6 @@ class ThreadTable(SQLModel, table=True):
     disagree: int
 
 
-# class ForumMapTable(SQLModel, table=True):
-#     __tablename__ = "forum_map"  # type: ignore
-#     tab_id: int = Field(primary_key=True)
-#     fid: int = Field(foreign_key="forum.fid", primary_key=True)
-#     tab_name: str
-
-
 class PostTable(SQLModel, table=True):
     __tablename__ = "post"  # type: ignore
     pid: int = Field(sa_column=Column(BigInteger, primary_key=True))
@@ -72,6 +65,8 @@ class PostTable(SQLModel, table=True):
     floor: int
     time: int
     content: str
+
+    __table_args__ = (Index("idx_replies_thread_floor", "tid", "floor"),)
 
 
 class CommentTable(SQLModel, table=True):
