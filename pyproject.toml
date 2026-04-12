@@ -7,7 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "aiofiles>=25.1.0",
     "aioitertools>=0.13.0",
-    "aiotieba>=4.6.2",
+    "aiotieba>=4.6.4",
     "lxml>=6.0.2",
     "pyyaml>=6.0.3",
     "requests>=2.32.5",
