@@ -236,6 +236,7 @@ async def safe_get_user_info(
 
 
 singleflight = SingleFlightCompletedBuffer[int, None]()
+singleflight_img = SingleFlightCompletedBuffer[str, etree.Element]()
 
 
 async def safe_get_and_upsert_user_info(
@@ -265,6 +266,39 @@ async def safe_get_and_upsert_user_info_once(
     )
 
 
+async def save_post_img( # type: ignore
+    client: tb.Client,
+    session: Session,
+    hash: str,
+    origin_src: str,
+) -> etree.Element:
+    statement = select(ImageTable).where(ImageTable.tieba_hash == hash)
+    result = session.exec(statement).all()
+    assert len(result) <= 1, result
+    if not result:
+        await download_file_async(origin_src, output_dir=OUTPUT_DIR)
+        new_img = ImageTable(
+            tieba_hash=hash, avatar_small_hash=None, avatar_large_hash=None
+        )
+        session.add(new_img)
+        session.flush()
+    else:
+        print(f"image {hash} found record in database, skipping")
+    return etree.Element("img", hash=hash, src=origin_src)
+
+
+async def save_post_img_once(  # type: ignore
+    client: tb.Client,
+    session: Session,
+    hash: str,
+    origin_src: str,
+) -> etree.Element:
+    return await singleflight_img.do(
+        hash,
+        lambda: save_post_img(client, session, hash, origin_src),  # type: ignore
+    )
+
+
 async def get_element(session: Session, client: tb.Client, c: object) -> etree.Element:  # type: ignore
     match c:
         case FragText():
@@ -272,19 +306,7 @@ async def get_element(session: Session, client: tb.Client, c: object) -> etree.E
         case FragEmoji():
             return etree.Element("emoji", desc=c.desc, id=c.id)
         case FragImage_p():
-            statement = select(ImageTable).where(ImageTable.tieba_hash == c.hash)
-            result = session.exec(statement).all()
-            assert len(result) <= 1, result
-            if not result:
-                await download_file_async(c.origin_src, output_dir=OUTPUT_DIR)
-                new_img = ImageTable(
-                    tieba_hash=c.hash, avatar_small_hash=None, avatar_large_hash=None
-                )
-                session.add(new_img)
-                session.flush()
-            else:
-                print(f"image {c.hash} found record in database, skipping")
-            return etree.Element("img", hash=c.hash, src=c.origin_src)
+            return await save_post_img_once(client, session, c.hash, c.origin_src)
         case FragAt():
             if c.user_id > 0:
                 await safe_get_and_upsert_user_info_once(client, session, c.user_id)
