@@ -19,7 +19,9 @@ class UserTable(SQLModel, table=True):
 
 class UserProfile(SQLModel, table=True):
     __tablename__ = "user_profile"  # type: ignore
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: Optional[int] = Field(
+        default=None, sa_column=Column(BigInteger, primary_key=True)
+    )
     uid: int = Field(
         sa_column=Column(
             BigInteger, ForeignKey("user.uid", ondelete="CASCADE"), nullable=False
@@ -44,7 +46,9 @@ class ForumTable(SQLModel, table=True):
 class ThreadTable(SQLModel, table=True):
     __tablename__ = "thread"  # type: ignore
     tid: int = Field(sa_column=Column(BigInteger, primary_key=True))
-    author_id: int = Field(foreign_key="user.uid")
+    author_id: int = Field(
+        sa_column=Column(BigInteger, ForeignKey("user.uid"), nullable=False)
+    )
     title: str
     time: int
     updated_time: int
@@ -60,8 +64,12 @@ class ThreadTable(SQLModel, table=True):
 class PostTable(SQLModel, table=True):
     __tablename__ = "post"  # type: ignore
     pid: int = Field(sa_column=Column(BigInteger, primary_key=True))
-    tid: int = Field(foreign_key="thread.tid")
-    author_id: int = Field(foreign_key="user.uid")
+    tid: int = Field(
+        sa_column=Column(BigInteger, ForeignKey("thread.tid"), nullable=False)
+    )
+    author_id: int = Field(
+        sa_column=Column(BigInteger, ForeignKey("user.uid"), nullable=False)
+    )
     floor: int
     time: int
     content: str
@@ -72,16 +80,24 @@ class PostTable(SQLModel, table=True):
 class CommentTable(SQLModel, table=True):
     __tablename__ = "comment"  # type: ignore
     cid: int = Field(sa_column=Column(BigInteger, primary_key=True))
-    pid: int = Field(foreign_key="post.pid")
-    author_id: int = Field(foreign_key="user.uid")
+    pid: int = Field(
+        sa_column=Column(BigInteger, ForeignKey("post.pid"), nullable=False)
+    )
+    author_id: int = Field(
+        sa_column=Column(BigInteger, ForeignKey("user.uid"), nullable=False)
+    )
     time: int
     content: str
-    reply_to: int = Field(foreign_key="user.uid")
+    reply_to: Optional[int] = Field(
+        sa_column=Column(BigInteger, ForeignKey("user.uid"), nullable=True)
+    )
 
 
 class ImageTable(SQLModel, table=True):
     __tablename__ = "image"  # type: ignore
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: Optional[int] = Field(
+        default=None, sa_column=Column(BigInteger, primary_key=True)
+    )
     tieba_hash: Optional[str] = Field()
     avatar_small_hash: Optional[str] = Field()
     avatar_large_hash: Optional[str] = Field()
