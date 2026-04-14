@@ -495,20 +495,32 @@ async def save_thread(
 
 
 async def save_all_comments(
-    engine: Engine, client: tb.Client, thread_id: int, post_id: int
+    engine: Engine, client: tb.Client, comments: Sequence[Comment]
 ):
     with Session(engine) as session:
-        pn = 1
-        while True:
+        for comment in comments:
             print(
-                f"fetching comments: thread_id: {thread_id}, post_id id: {post_id}, pn:{pn}"
+                f"saving comment id: {comment.pid}, thread id: {comment.tid}, post id: {comment.ppid}"
             )
-            # FIXME: when failed
-            comments = await client.get_comments(thread_id, post_id, pn=pn)
-            await parse_comments(session, client, comments)
-            if not comments.has_more:
-                break
-            pn += 1
+            await save_comment(session, client, comment)
+
+
+async def fetch_post_comments(
+    client: tb.Client, thread_id: int, post_id: int
+) -> list[Comment]:
+    pn = 1
+    collected: list[Comment] = []
+    while True:
+        print(
+            f"fetching comments: thread_id: {thread_id}, post_id id: {post_id}, pn:{pn}"
+        )
+        # FIXME: when failed
+        page = await client.get_comments(thread_id, post_id, pn=pn)
+        collected.extend(page)
+        if not page.has_more:
+            break
+        pn += 1
+    return collected
 
 
 async def safe_get_posts(
@@ -575,10 +587,11 @@ async def get_all_posts(engine: Engine, client: tb.Client, thread_id: int):
         await save_posts(session, client, posts[1:])
 
     post_ids = [post.pid for post in posts if post.reply_num > 0]
-    tasks = [
-        save_all_comments(engine, client, thread_id, post_id) for post_id in post_ids
-    ]
-    await asyncio.gather(*tasks)
+    fetched_comments = await asyncio.gather(
+        *[fetch_post_comments(client, thread_id, post_id) for post_id in post_ids]
+    )
+    for comments in fetched_comments:
+        await save_all_comments(engine, client, comments)
 
 
 async def fetch_batch(engine: Engine, client: tb.Client, batch: Sequence[int]):
