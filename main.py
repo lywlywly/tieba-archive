@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import time
 from typing import Iterable, Optional, Sequence
 
@@ -26,6 +27,7 @@ from aiotieba.api.get_posts._classdef import (
 from aiotieba.logging import get_logger
 from lxml import etree  # type: ignore
 from lxml.builder import E
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, SQLModel, create_engine, exists, select
 
@@ -68,8 +70,56 @@ with open("config.yaml", "r") as f:
     web_tieba_cookies: str = config["web_tieba_cookies"]
     assert web_tieba_cookies and isinstance(web_tieba_cookies, str)
 
+DB_MODE: str = (
+    str(os.getenv("DB_MODE", config.get("db_mode", "sqlite"))).strip().lower()
+)
+if DB_MODE not in {"sqlite", "postgresql"}:
+    raise ValueError(f"invalid db mode: {DB_MODE}, expected sqlite or postgresql")
+
+SQLITE_PATH: str = str(
+    os.getenv("SQLITE_PATH", config.get("sqlite_path", "tieba.db"))
+).strip()
+POSTGRES_URL: str = str(
+    os.getenv("POSTGRES_URL", config.get("postgres_url", ""))
+).strip()
+
+DB_VERIFY_TIMEOUT_SECONDS = 10
+
+if DB_MODE == "sqlite" and not SQLITE_PATH:
+    raise ValueError("sqlite mode requires non-empty sqlite_path/SQLITE_PATH")
+if DB_MODE == "postgresql" and not POSTGRES_URL:
+    raise ValueError("postgresql mode requires non-empty postgres_url/POSTGRES_URL")
+
 SMALL_AVATAR_URL = "http://tb.himg.baidu.com/sys/portraitn/item/{portrait}"
 LARGE_AVATAR_URL = "http://tb.himg.baidu.com/sys/portraith/item/{portrait}"
+
+
+def build_engine_from_config() -> Engine:
+    if DB_MODE == "sqlite":
+        db_url = f"sqlite:///{SQLITE_PATH}"
+        print(f"Using SQLite database: {SQLITE_PATH}")
+        return create_engine(db_url, pool_pre_ping=True)
+    if DB_MODE == "postgresql":
+        print("Using PostgreSQL database from postgres_url/POSTGRES_URL")
+        return create_engine(
+            POSTGRES_URL,
+            pool_pre_ping=True,
+            connect_args={"connect_timeout": DB_VERIFY_TIMEOUT_SECONDS},
+        )
+    raise ValueError(f"invalid db mode in engine builder: {DB_MODE}")
+
+
+def verify_database_connection(engine: Engine) -> None:
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as e:
+        if DB_MODE == "postgresql":
+            raise RuntimeError(
+                "PostgreSQL connectivity check failed. "
+                "Please verify POSTGRES_URL/db server and that the database exists."
+            ) from e
+        raise
 
 
 async def _ensure_avatar_image(
@@ -642,7 +692,8 @@ async def main():
     with open("blacklist.txt", "r") as f:
         blacklist = set(int(line.strip()) for line in f.readlines())
 
-    engine = create_engine("sqlite:///tieba.db")
+    engine = build_engine_from_config()
+    verify_database_connection(engine)
     SQLModel.metadata.create_all(engine)
 
     while True:

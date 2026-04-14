@@ -9,6 +9,7 @@ dependencies = [
     "aioitertools>=0.13.0",
     "aiotieba>=4.6.4",
     "lxml>=6.0.2",
+    "psycopg[binary]>=3.2.0",
     "pyyaml>=6.0.3",
     "requests>=2.32.5",
     "sqlmodel>=0.0.37",
