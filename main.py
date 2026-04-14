@@ -408,7 +408,7 @@ async def save_comment(session: Session, client: tb.Client, comment: Comment):
         cid=comment.pid,
         pid=comment.ppid,
         author_id=comment.author_id,
-        reply_to=comment.reply_to_id,
+        reply_to=comment.reply_to_id if comment.reply_to_id > 0 else None,
         time=comment.create_time,
         content=await contents_to_xml(session, client, comment.contents),  # type: ignore
     )
