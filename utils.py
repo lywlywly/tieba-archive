@@ -143,6 +143,14 @@ def _dedupe_path(path: str) -> tuple[bool, str]:
     return False, candidate
 
 
+def _bucketed_output_path(output_dir: str, filename: str, prefix_len: int = 2) -> str:
+    if not filename or not filename[0].isalnum():
+        bucket = "_other"
+    else:
+        bucket = filename[:prefix_len].lower()
+    return os.path.join(output_dir, "by_prefix", bucket, filename)
+
+
 async def download_bytes(
     url: str,
     retries: int = 10,
@@ -228,17 +236,26 @@ async def download_file_async(
                                 or "downloaded_file"
                             )
 
-                    final_path = os.path.join(output_dir, filename)
-                    is_dupe, _ = _dedupe_path(final_path)
-                    if is_dupe and not use_hash_as_filename:
-                        return (final_path, None)
-
-                    # Temporary path: <filename>.part
-                    temp_path = final_path + ".part"
+                    final_path = _bucketed_output_path(output_dir, filename)
+                    if use_hash_as_filename:
+                        # Hash mode writes to a hash-derived destination bucket later.
+                        # Keep temp files in output_dir to avoid creating unused buckets.
+                        temp_path = os.path.join(
+                            output_dir,
+                            f".tmp_{os.getpid()}_{random.getrandbits(64):016x}.part",
+                        )
+                    else:
+                        os.makedirs(os.path.dirname(final_path), exist_ok=True)
+                        is_dupe, _ = _dedupe_path(final_path)
+                        if is_dupe:
+                            return (os.path.abspath(final_path), None)
+                        temp_path = final_path + ".part"
 
                     if use_hash_as_filename:
                         h = hashlib.sha256()
 
+                    destination_path = final_path
+                    _hash: str | None = None
                     try:
                         async with aiofiles.open(temp_path, "wb") as f:
                             async for chunk in resp.content.iter_chunked(chunk_size):
@@ -251,17 +268,23 @@ async def download_file_async(
                         try:
                             if use_hash_as_filename:
                                 _hash = h.hexdigest()  # type: ignore
-                                dst = os.path.join(output_dir, _hash + ".jpg")
-                                if os.path.exists(dst):
-                                    print(f"{dst} exists, replacing")
-                                os.replace(temp_path, dst)
-                            else:
-                                os.replace(temp_path, final_path)
+                                destination_path = _bucketed_output_path(
+                                    output_dir, _hash + ".jpg"
+                                )
+                                os.makedirs(
+                                    os.path.dirname(destination_path), exist_ok=True
+                                )
+                                if os.path.exists(destination_path):
+                                    print(f"{destination_path} exists, replacing")
+                            os.replace(temp_path, destination_path)
                         except FileNotFoundError:
-                            # Most likely another concurrent task already moved temp_path -> final_path.
-                            # If final_path exists, we can safely treat this as success.
-                            if os.path.exists(final_path):
-                                return (os.path.abspath(final_path), None)
+                            # Most likely another concurrent task already moved temp_path -> destination_path.
+                            # If destination_path exists, we can safely treat this as success.
+                            if os.path.exists(destination_path):
+                                return (
+                                    os.path.abspath(destination_path),
+                                    _hash if use_hash_as_filename else None,
+                                )
                             raise
 
                     except Exception:
@@ -271,7 +294,7 @@ async def download_file_async(
                         raise
 
                     if use_hash_as_filename:
-                        return (os.path.abspath(final_path), _hash)  # type: ignore
+                        return (os.path.abspath(destination_path), _hash)
                     return (os.path.abspath(final_path), None)
 
         except (
