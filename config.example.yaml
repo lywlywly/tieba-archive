@@ -1,0 +1,30 @@
+# forum_names (required, no default): Tieba forums to crawl
+forum_names:
+  - forum_name_1
+  - forum_name_2
+
+# concurrency_limit (optional, default: 1): crawl concurrency (coroutine-level tasks)
+concurrency_limit: 1
+
+# BDUSS (required, no default): Tieba login credential used by aiotieba API
+# For how to obtain BDUSS, refer to aiotieba docs:
+# https://github.com/lumina37/aiotieba
+BDUSS: "<your_bduss>"
+
+# pages (optional, default: 5): number of forum pages to scan each loop
+pages: 5
+
+# sleep (optional, default: 1800): sleep seconds between crawl loops
+sleep: 1800
+
+# output_dir (optional, default: output): directory for downloaded images/files
+output_dir: output
+
+# db_mode (optional, default: sqlite): sqlite or postgresql
+db_mode: sqlite
+
+# sqlite_path (optional, default: tieba.db): used when db_mode=sqlite
+sqlite_path: tieba.db
+
+# postgres_url (required when db_mode=postgresql, no default)
+postgres_url: "postgresql+psycopg://user:password@host:5432/tieba"
