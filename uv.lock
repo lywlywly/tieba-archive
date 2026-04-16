@@ -94,7 +94,7 @@ wheels = [
 
 [[package]]
 name = "aiotieba"
-version = "4.6.4"
+version = "4.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -103,18 +103,18 @@ dependencies = [
     { name = "lxml" },
     { name = "protobuf" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5d/3a/df46c7f84d1c7b6013940cfdffca083dfcc80614b61f6f106ef00302bc91/aiotieba-4.6.4.tar.gz", hash = "sha256:b59cf6786f7213a1c60a9ffb12238b3e6136815b4b3315e641710ea1d31be5c3", size = 209853, upload-time = "2026-03-23T08:50:13.233Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cd/0a/88752d4a90fa118188abb48427161e94a289178d7bd8a89de0c8dd522aa3/aiotieba-4.7.0.tar.gz", hash = "sha256:c34763ccf7ea4c550db46ec34b2baf45644835f09169a6f2c15991a00330e227", size = 211390, upload-time = "2026-04-15T04:40:33.424Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/59/07/d2b61cd5ba0a2c0a6665714a127ef41f48c43ed10862ab6824b862b441ff/aiotieba-4.6.4-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:eb4973922e434679db7a1f8c157b1a51a6b3c15d819b895b6b3af6d0ebfc9d62", size = 305331, upload-time = "2026-03-23T08:49:47.432Z" },
-    { url = "https://files.pythonhosted.org/packages/2f/eb/8cc75283e2ee504d565982d1570a0c6454d425af8f57dd6e235eb33c71e4/aiotieba-4.6.4-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:0ea47eb82cedf78e793950a593e064a1942ed021226d4b7376f034b9b9faf373", size = 305720, upload-time = "2026-03-23T08:49:48.675Z" },
-    { url = "https://files.pythonhosted.org/packages/8a/b6/5fbb390d820973de65e250f67883b6e68c4464cb26e88f9b980a8d36069e/aiotieba-4.6.4-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:33f268169c3bbde697aa57edeeec135dc6fbb93e28dfba9f77ee5125c353538a", size = 307304, upload-time = "2026-03-23T08:49:50.26Z" },
-    { url = "https://files.pythonhosted.org/packages/a3/cc/b338d57bb53a69c64b946bc06ae01bea1435cf1251ed662603869f443f96/aiotieba-4.6.4-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:12cee92cbed613aae16f83bf076613957ec82634d30ced46f009dcee8f0b1481", size = 307448, upload-time = "2026-03-23T08:49:51.824Z" },
-    { url = "https://files.pythonhosted.org/packages/52/ce/a797a9c9462edd9709f2e53dbd19c2e36db46d7b3829d5e40868c0485f3c/aiotieba-4.6.4-cp314-cp314-win_amd64.whl", hash = "sha256:31bdade5aefcc89c35ef71bc42adbf0c096257836834b2972c47d425b762f559", size = 291919, upload-time = "2026-03-23T08:49:53.026Z" },
-    { url = "https://files.pythonhosted.org/packages/dc/ad/bbd888cb1ef94ccd8b958a1f2e9ef2551d0924112d8e0fe5895da30800f1/aiotieba-4.6.4-cp314-cp314t-macosx_10_15_x86_64.whl", hash = "sha256:de06fd33dc39d5ee7993aeb7c9e2cc050bf39b6e7b192dd79b773f3e5ee98588", size = 305385, upload-time = "2026-03-23T08:49:54.5Z" },
-    { url = "https://files.pythonhosted.org/packages/2b/c3/dd91b560e1a0ab3d45fcf9825de4c3c758fc0ae6f03eb113c42cc0ace2a6/aiotieba-4.6.4-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:cb3ec558a0e360f1813526695738295376414bbad800f1267c983cf02d89499c", size = 305784, upload-time = "2026-03-23T08:49:56.344Z" },
-    { url = "https://files.pythonhosted.org/packages/65/13/d7900b64587ca2b4cb4aedd39d24aa545931e03531b0e9d03e61b4952c0c/aiotieba-4.6.4-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:26f13d42da46ab5817838444fbbbea070c3c63128ecf81e3a60da48d32cb4c03", size = 307363, upload-time = "2026-03-23T08:49:57.644Z" },
-    { url = "https://files.pythonhosted.org/packages/ee/bd/75d0139fae5080b85829ba687567ad3f0decff37dd0311c835b767b1ef3b/aiotieba-4.6.4-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:cce584ea7ad32d8604b05dedc8c9cf493d3798c2aa844e9195d75576aeb131c4", size = 307499, upload-time = "2026-03-23T08:49:58.873Z" },
-    { url = "https://files.pythonhosted.org/packages/b4/76/94eee4b7e9c5c4a24c6219129a0ca465ba79d08013185c9b2899f8a5a2ff/aiotieba-4.6.4-cp314-cp314t-win_amd64.whl", hash = "sha256:fe5ffa871ffc898e3a288b75c777ab49fe8545ffd11573b6653c0512c216217d", size = 291958, upload-time = "2026-03-23T08:50:00.395Z" },
+    { url = "https://files.pythonhosted.org/packages/ae/f8/253f9b7d10cbb9172428f979200b950085707daf52ab323c09d91123c390/aiotieba-4.7.0-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:924d8334d7ea8f434a46702f71c82b13ed18aaeb3b92381c4daa9a68a26a7153", size = 303281, upload-time = "2026-04-15T04:40:08.737Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/a4/7fbd0034abe1e7cc2aa1ec6003f4a0eac3925b394854007cd451e2a04fdb/aiotieba-4.7.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:cc0757cd7423251a5bbb72f107283dfd00678c12b3e1620848620fea7727e454", size = 303666, upload-time = "2026-04-15T04:40:10.175Z" },
+    { url = "https://files.pythonhosted.org/packages/60/33/83d73680675cc78e77af120a057f0b09b35a0816f10de6b3b0b3d01330a8/aiotieba-4.7.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:aeb1387e261c6762b659d28a126bb37ce57a6bb334e472a7c20b682d5d6a2dbf", size = 305257, upload-time = "2026-04-15T04:40:11.634Z" },
+    { url = "https://files.pythonhosted.org/packages/cc/4b/9dc48ea5f9619cc56a53bdd29839faba15aacd17dd5005f553f6dec2c252/aiotieba-4.7.0-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:f8e74c729a2de144af6b7501b354bd5f7a787315335dbd1fb9fdf91bd2fd6a2f", size = 305396, upload-time = "2026-04-15T04:40:13.246Z" },
+    { url = "https://files.pythonhosted.org/packages/93/ca/c57563c5cdb4aef30f1c045852cd2d5c1748ea32924db1fba18b5c2e0609/aiotieba-4.7.0-cp314-cp314-win_amd64.whl", hash = "sha256:5232ce830c625cafdd197706e15806e2dbc1978e2ce823e72175d0215ad6be67", size = 288879, upload-time = "2026-04-15T04:40:14.619Z" },
+    { url = "https://files.pythonhosted.org/packages/7d/46/330f0d14eb0cb4d28e531298e57971e8f9e6338d0620824da483a1491bb6/aiotieba-4.7.0-cp314-cp314t-macosx_10_15_x86_64.whl", hash = "sha256:a98b20cb1159516e806618d89f0d54869d4c3f53f69ae9dbaf9e75e5843910fa", size = 303327, upload-time = "2026-04-15T04:40:15.91Z" },
+    { url = "https://files.pythonhosted.org/packages/f8/57/12e69e41887789786f274388e538d031704d76b281efdd2e581885e7f516/aiotieba-4.7.0-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:14246ae545098b646c9302f2f8e55d0d4c539aac805ca7c22a0148e898fc9242", size = 303732, upload-time = "2026-04-15T04:40:17.194Z" },
+    { url = "https://files.pythonhosted.org/packages/4a/4b/ba15fab0502558de8f294c0fbdce593ef786438c700fd145de535544e4e6/aiotieba-4.7.0-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:63ffea39e0fcb4e06b99d601dbf38dc0304f9dde4450a95d997ca943a7aa1fee", size = 305317, upload-time = "2026-04-15T04:40:18.628Z" },
+    { url = "https://files.pythonhosted.org/packages/46/af/6ea891d224005fe3f32f9ff72aa90a296c8ca550062a5d5fe44a3abbec1a/aiotieba-4.7.0-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:699695c7c130fc297b382f6202c48d8d865c2ee7da3d2793c7a13db672feffcd", size = 305455, upload-time = "2026-04-15T04:40:19.992Z" },
+    { url = "https://files.pythonhosted.org/packages/11/94/e1ac3084ee2fa85e90b1d8ca630f45b731dfb42118ca977517a6f701a17b/aiotieba-4.7.0-cp314-cp314t-win_amd64.whl", hash = "sha256:620a255cd2ceb41c096afc2269713413efcb6a352d422dd647e6e8f3cdb74df5", size = 288912, upload-time = "2026-04-15T04:40:21.25Z" },
 ]
 
 [[package]]
@@ -706,7 +706,7 @@ dependencies = [
 requires-dist = [
     { name = "aiofiles", specifier = ">=25.1.0" },
     { name = "aioitertools", specifier = ">=0.13.0" },
-    { name = "aiotieba", specifier = ">=4.6.4" },
+    { name = "aiotieba", specifier = ">=4.7.0" },
     { name = "lxml", specifier = ">=6.0.2" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
