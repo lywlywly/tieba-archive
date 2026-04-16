@@ -1,8 +1,7 @@
 import asyncio
-import logging
 import os
 import time
-from typing import Iterable, Optional, Sequence
+from typing import Any, Iterable, Optional, Sequence
 
 import aioitertools.itertools as ait
 import aiotieba as tb
@@ -49,39 +48,107 @@ from utils import (
     inclusive_takewhile,
     sha256_bytes,
 )
-from web_get_tids_reply_order import scrape_tieba_thread_ids
 
-with open("config.yaml", "r") as f:
-    config = yaml.safe_load(f)
-    CONCURRENCY_LIMIT = config["concurrency_limit"]
-    assert CONCURRENCY_LIMIT and isinstance(CONCURRENCY_LIMIT, int)
-    OUTPUT_DIR: str = config["output_dir"]
-    assert OUTPUT_DIR and isinstance(OUTPUT_DIR, str)
-    BDUSS: str = config["BDUSS"]
-    assert BDUSS and isinstance(BDUSS, str)
-    forum_names: list[str] = config["forum_names"]
-    assert forum_names and isinstance(forum_names, list)
-    for _forum_name in forum_names:
-        assert isinstance(_forum_name, str)
-    pages: int = config["pages"]
-    assert pages and isinstance(pages, int)
-    sleep: int = config["sleep"]
-    assert sleep and isinstance(sleep, int)
-    web_tieba_cookies: str = config["web_tieba_cookies"]
-    assert web_tieba_cookies and isinstance(web_tieba_cookies, str)
+if os.path.exists("config.yaml"):
+    with open("config.yaml", "r") as f:
+        raw_config = yaml.safe_load(f)
+else:
+    raw_config = {}
+
+if raw_config is None:
+    config: dict[str, Any] = {}
+elif isinstance(raw_config, dict):
+    config = raw_config
+else:
+    raise ValueError("config.yaml must contain a mapping/object at top level")
+
+
+def _env_or_config_str(env_key: str, config_key: str, required: bool = True) -> str:
+    env_val = os.getenv(env_key)
+    val = env_val if env_val is not None else config.get(config_key, "")
+    val = str(val).strip()
+    if required and not val:
+        raise ValueError(f"missing required config: {config_key}/{env_key}")
+    return val
+
+
+def _env_or_config_int(
+    env_key: str,
+    config_key: str,
+    default: Optional[int] = None,
+) -> int:
+    env_val = os.getenv(env_key)
+    raw = env_val if env_val is not None else config.get(config_key)
+    if raw is None or str(raw).strip() == "":
+        if default is not None:
+            return default
+        raise ValueError(f"missing required config: {config_key}/{env_key}")
+    try:
+        return int(str(raw).strip())
+    except ValueError as e:
+        raise ValueError(f"invalid int for {config_key}/{env_key}: {raw!r}") from e
+
+
+def _env_or_config_str_list(
+    env_key: str, config_key: str, default: Optional[list[str]] = None
+) -> list[str]:
+    env_val = os.getenv(env_key)
+    if env_val is not None:
+        raw = env_val.strip()
+        if not raw:
+            raise ValueError(f"{env_key} is set but empty")
+        parsed: Any = yaml.safe_load(raw)
+        if isinstance(parsed, list):
+            parsed_list: list[object] = parsed
+            names = [str(x).strip() for x in parsed_list if str(x).strip()]
+        else:
+            names = [x.strip() for x in raw.split(",") if x.strip()]
+        if not names:
+            raise ValueError(f"{env_key} produced empty list")
+        return names
+
+    val = config.get(config_key)
+    if val is None:
+        if default is not None:
+            return default
+        raise ValueError(f"missing or invalid config: {config_key}")
+    if isinstance(val, list):
+        val_list: list[object] = val
+        names = [str(x).strip() for x in val_list if str(x).strip()]
+    else:
+        raw = str(val).strip()
+        if not raw:
+            if default is not None:
+                return default
+            raise ValueError(f"missing or invalid config: {config_key}")
+        parsed: Any = yaml.safe_load(raw)
+        if isinstance(parsed, list):
+            parsed_list: list[object] = parsed
+            names = [str(x).strip() for x in parsed_list if str(x).strip()]
+        else:
+            names = [x.strip() for x in raw.split(",") if x.strip()]
+    if not names:
+        raise ValueError(f"{config_key} produced empty list")
+    return names
+
+
+CONCURRENCY_LIMIT = _env_or_config_int("CONCURRENCY_LIMIT", "concurrency_limit", default=1)
+OUTPUT_DIR = _env_or_config_str("OUTPUT_DIR", "output_dir", required=False) or "output"
+BDUSS = _env_or_config_str("BDUSS", "BDUSS")
+forum_names = _env_or_config_str_list("FORUM_NAMES", "forum_names")
+pages = _env_or_config_int("PAGES", "pages", default=5)
+sleep = _env_or_config_int("SLEEP", "sleep", default=1800)
 
 DB_MODE: str = (
-    str(os.getenv("DB_MODE", config.get("db_mode", "sqlite"))).strip().lower()
-)
+    _env_or_config_str("DB_MODE", "db_mode", required=False) or "sqlite"
+).lower()
 if DB_MODE not in {"sqlite", "postgresql"}:
     raise ValueError(f"invalid db mode: {DB_MODE}, expected sqlite or postgresql")
 
-SQLITE_PATH: str = str(
-    os.getenv("SQLITE_PATH", config.get("sqlite_path", "tieba.db"))
-).strip()
-POSTGRES_URL: str = str(
-    os.getenv("POSTGRES_URL", config.get("postgres_url", ""))
-).strip()
+SQLITE_PATH = (
+    _env_or_config_str("SQLITE_PATH", "sqlite_path", required=False) or "tieba.db"
+)
+POSTGRES_URL = _env_or_config_str("POSTGRES_URL", "postgres_url", required=False)
 
 DB_VERIFY_TIMEOUT_SECONDS = 10
 
