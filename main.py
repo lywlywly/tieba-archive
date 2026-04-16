@@ -689,8 +689,11 @@ async def run_rolling(
 
 
 async def main():
-    with open("blacklist.txt", "r") as f:
-        blacklist = set(int(line.strip()) for line in f.readlines())
+    if os.path.exists("blacklist.txt"):
+        with open("blacklist.txt", "r") as f:
+            blacklist = set(int(line.strip()) for line in f.readlines())
+    else:
+        blacklist = set()
 
     engine = build_engine_from_config()
     verify_database_connection(engine)
